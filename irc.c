@@ -303,7 +303,8 @@ uparse(char *m)
 		sndf("PRIVMSG %s :%s", m, p);
 		return;
 	case 'r': /* Send raw. */
-		sndf("%s", m);
+		if (p[1])
+			sndf("%s", &p[2]);
 		return;
 	case 'q': /* Quit. */
 		quit=1;
