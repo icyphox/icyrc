@@ -21,7 +21,7 @@
 #include <locale.h>
 
 #define SCROLL 15
-#define DATEFMT "%T"
+#define DATEFMT "%H:%M"
 #define PFMT "%-12s < %s"
 
 enum { ChanLen = 64, LineLen = 512, MaxChans = 16, BufSz = 2048, LogSz = 4096 };
@@ -39,7 +39,8 @@ int eof; /* EOF reached on server side. */
 struct Chan {
 	char name[ChanLen];
 	char *buf, *eol;
-	size_t n, sz; /* n is the scoll offset, sz is size of buf. */
+	int n; /* Scroll offset. */
+	size_t sz; /* size of buf. */
 } chl[MaxChans];
 int nch, ch; /* Current number of channels, and current channel. */
 char outb[BufSz], *outp=outb; /* Output buffer. */
@@ -176,48 +177,39 @@ chdel(char *name)
 }
 
 static void
-pushm(int cn, char *msg)
-{
-	struct Chan * const c=&chl[cn];
-	size_t blen=c->eol-c->buf, l=strlen(msg);
-
-	if (blen+l>=c->sz) {
-		do
-			c->sz *= 2;
-		while (blen+l>=c->sz);
-		c->buf=realloc(c->buf, c->sz);
-		if (!c->buf) panic("Out of memory.");
-		c->eol = c->buf+blen;
-	}
-	strcpy(c->eol, msg);
-	c->eol+=l;
-	if (cn==ch && c->n==0) /* Redraw if the current channel was modified. */
-		tredraw();
-}
-
-static void
 pushf(int cn, const char *fmt, ...)
 {
-	//struct Chan *const c=&chl[cn];
-	char lb[512];
-	size_t n;
+	struct Chan *const c=&chl[cn];
+	size_t n, blen=c->eol-c->buf;
+	va_list vl;
 	time_t t;
 	struct tm *tm;
-	va_list vl;
 
+	if (blen+LineLen>=c->sz) {
+		c->sz *= 2;
+		c->buf=realloc(c->buf, c->sz);
+		if (!c->buf) panic("Out of memory.");
+		c->eol=c->buf+blen;
+	}
 	t=time(0);
-	tm=localtime(&t);
-	if (!tm)
-		panic("localtime failed.");
-	n=strftime(lb, sizeof lb, DATEFMT, tm);
-	lb[n]=' ';
-	if (!n)
-		panic("strftime failed.");
+	if (!(tm=localtime(&t))) panic("localtime failed.");
+	n=strftime(c->eol, LineLen, DATEFMT, tm);
+	c->eol[n++] = ' ';
 	va_start(vl, fmt);
-	n+=vsnprintf(lb+n+1, sizeof lb-n-3, fmt, vl);
+	n+=vsnprintf(c->eol+n, LineLen-n-1, fmt, vl);
 	va_end(vl);
-	strcat(lb, "\n");
-	pushm(cn, lb);
+	strcat(c->eol, "\n");
+	if (n>=LineLen-1)
+		c->eol+=LineLen-1;
+	else
+		c->eol+=n+1;
+	if (cn==ch && c->n==0) {
+		char *p=c->eol-n-1;
+		if (p!=c->buf) waddch(scr.mw, '\n');
+		for (; p<c->eol-1; p++)
+			waddch(scr.mw, *p);
+		wrefresh(scr.mw);
+	}
 }
 
 static void
@@ -257,6 +249,9 @@ scmd(char *usr, char *cmd, char *par, char *data)
 		}
 	} else if (!strcmp(cmd, "QUIT")) { /* Commands we don't care about. */
 		return;
+	} else if (!strcmp(cmd, "NOTICE") || !strcmp(cmd, "375")
+	       || !strcmp(cmd, "372") || !strcmp(cmd, "376")) {
+		pushf(0, "%s", data?data:"");
 	} else
 		pushf(0, "%s - %s %s", cmd, par, data?data:"(null)");
 }
@@ -332,6 +327,7 @@ tinit(void)
 	|| (scr.iw=newwin(1, scr.x, scr.y-1, 0))==0)
 		panic("Cannot create windows.");
 	keypad(scr.iw, 1);
+	scrollok(scr.mw, 1);
 	if (has_colors()==TRUE) {
 		start_color();
 		init_pair(1, COLOR_WHITE, COLOR_BLUE);
@@ -344,7 +340,7 @@ tredraw(void)
 {
 	struct Chan * const c=&chl[ch];
 	char *q, *p;
-	int llen=0, nl=0;
+	int llen=0, nl=-1;
 
 	if (c->eol==c->buf) {
 		wclear(scr.mw);
