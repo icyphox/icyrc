@@ -365,7 +365,7 @@ tresize(void)
 static void
 tredraw(void)
 {
-	struct Chan * const c=&chl[ch];
+	struct Chan *const c=&chl[ch];
 	char *q, *p;
 	int llen=0, nl=-1;
 
@@ -408,14 +408,14 @@ tredraw(void)
 static void
 tgetch(void)
 {
-	static char lb[BufSz];
+	static char l[BufSz];
 	static size_t cu=0, len=0;
 	size_t dirty=len+1, i;
 	int c;
 
 	c=wgetch(scr.iw);
 	switch (c) {
-	case 0xe: ch=(ch+1)%nch; tredraw(); return;
+	case 0xe:  ch=(ch+1)%nch;     tredraw(); return;
 	case 0x10: ch=(ch+nch-1)%nch; tredraw(); return;
 	case KEY_PPAGE:
 		chl[ch].n+=SCROLL;
@@ -426,7 +426,7 @@ tgetch(void)
 		if (chl[ch].n<0) chl[ch].n=0;
 		tredraw();
 		return;
-	case 0x1: cu=0; break;
+	case 0x1: cu=0;   break;
 	case 0x5: cu=len; break;
 	case 0x2:
 	case KEY_LEFT: if (cu) cu--; break;
@@ -436,27 +436,26 @@ tgetch(void)
 	case 0x15:
 		if (cu==0) return;
 		len-=cu;
-		memmove(lb, &lb[cu], len);
+		memmove(l, &l[cu], len);
 		dirty=cu=0;
 		break;
 	case KEY_BACKSPACE:
 		if (cu==0) return;
-		memmove(&lb[cu-1], &lb[cu], len-cu);
+		memmove(&l[cu-1], &l[cu], len-cu);
 		dirty=--cu;
 		len--;
 		break;
 	case '\n':
-		if (len==BufSz) len--;
-		lb[len]=0;
-		uparse(lb);
+		l[len]=0;
+		uparse(l);
 		dirty=cu=len=0;
 		break;
 	default:
-		if (c>CHAR_MAX || len>=BufSz) return; /* Skip other curses codes. */
-		memmove(&lb[cu+1], &lb[cu], len-cu);
+		if (c>CHAR_MAX || len>=BufSz-1) return; /* Skip other curses codes. */
+		memmove(&l[cu+1], &l[cu], len-cu);
 		dirty=cu;
 		len++;
-		lb[cu++]=c;
+		l[cu++]=c;
 		break;
 	}
 	/* TODO, add a cleverer printer to deal with long lines. */
@@ -464,7 +463,7 @@ tgetch(void)
 		wmove(scr.iw, 0, strlen(nick)+2+dirty);
 		wclrtoeol(scr.iw);
 		for (i=dirty; i<len; i++)
-			waddch(scr.iw, lb[i]);
+			waddch(scr.iw, l[i]);
 	}
 	wmove(scr.iw, 0, strlen(nick)+2+cu);
 }
