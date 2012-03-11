@@ -2,6 +2,7 @@
  */
 #include <assert.h>
 #include <limits.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
@@ -28,7 +29,7 @@ enum { ChanLen = 64, LineLen = 512, MaxChans = 16, BufSz = 2048, LogSz = 4096 };
 
 char nick[64];
 char prefix[64];
-int quit;
+int quit, winchg;
 int sfd; /* Server file descriptor. */
 struct {
 	int x;
@@ -315,9 +316,16 @@ uparse(char *m)
 }
 
 static void
+sigwinch(int sig)
+{
+	if (sig) winchg=1;
+}
+
+static void
 tinit(void)
 {
 	setlocale(LC_ALL, "");
+	signal(SIGWINCH, sigwinch);
 	initscr();
 	raw();
 	noecho();
@@ -334,6 +342,19 @@ tinit(void)
 		init_pair(1, COLOR_WHITE, COLOR_BLUE);
 		wbkgd(scr.sw, COLOR_PAIR(1));
 	}
+}
+
+static void
+tresize(void)
+{
+	winchg=0;
+	getmaxyx(stdscr, scr.y, scr.x);
+	if (scr.y<3 || scr.x<10) panic("Screen too small.");
+	wresize(scr.mw, scr.y-2, scr.x);
+	wresize(scr.iw, 1, scr.x);
+	wresize(scr.sw, 1, scr.x);
+	mvwin(scr.iw, scr.y-1, 1);
+	tredraw();
 }
 
 static void
@@ -425,11 +446,6 @@ tgetch(void)
 		uparse(lb);
 		dirty=cu=len=0;
 		break;
-	case KEY_RESIZE:
-		getmaxyx(stdscr, scr.y, scr.x);
-		if (scr.y<3 || scr.x<10) panic("Screen too small.");
-		tredraw();
-		return;
 	default:
 		if (c>CHAR_MAX || len>=BufSz) return; /* Skip other curses codes. */
 		memmove(&lb[cu+1], &lb[cu], len-cu);
@@ -476,7 +492,9 @@ main(void)
 	while (!quit) {
 		fd_set rfs, wfs;
 		int ret;
-		
+
+		if (winchg)
+			tresize();
 		FD_ZERO(&wfs);
 		FD_ZERO(&rfs);
 		FD_SET(0, &rfs);
@@ -494,7 +512,7 @@ main(void)
 		}
 		if (FD_ISSET(sfd, &wfs)) {
 			int wr;
-			
+
 			wr=write(sfd, outb, outp-outb);
 			if (wr<0) {
 				if (errno==EINTR) continue;
