@@ -351,7 +351,8 @@ tresize(void)
 	struct winsize ws;
 
 	winchg=0;
-	ioctl(0, TIOCGWINSZ, &ws);
+	if (ioctl(0, TIOCGWINSZ, &ws)<0)
+		panic("Ioctl (TIOCGWINSZ) failed.");
 	resizeterm(scr.y=ws.ws_row, scr.x=ws.ws_col);
 	if (scr.y<3 || scr.x<10)
 		panic("Screen too small.");
