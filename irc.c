@@ -16,6 +16,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/select.h>
+#include <sys/ioctl.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <netdb.h>
@@ -347,13 +348,17 @@ tinit(void)
 static void
 tresize(void)
 {
+	struct winsize ws;
+
 	winchg=0;
-	getmaxyx(stdscr, scr.y, scr.x);
-	if (scr.y<3 || scr.x<10) panic("Screen too small.");
+	ioctl(0, TIOCGWINSZ, &ws);
+	resizeterm(scr.y=ws.ws_row, scr.x=ws.ws_col);
+	if (scr.y<3 || scr.x<10)
+		panic("Screen too small.");
 	wresize(scr.mw, scr.y-2, scr.x);
 	wresize(scr.iw, 1, scr.x);
 	wresize(scr.sw, 1, scr.x);
-	mvwin(scr.iw, scr.y-1, 1);
+	mvwin(scr.iw, scr.y-1, 0);
 	tredraw();
 }
 
