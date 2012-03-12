@@ -410,14 +410,20 @@ static void
 tgetch(void)
 {
 	static char l[BufSz];
-	static size_t cu=0, len=0;
+	static size_t shft, cu, len;
 	size_t dirty=len+1, i;
 	int c;
 
 	c=wgetch(scr.iw);
 	switch (c) {
-	case 0xe:  ch=(ch+1)%nch;     tredraw(); return;
-	case 0x10: ch=(ch+nch-1)%nch; tredraw(); return;
+	case CTRL('n'): //0xe:
+		ch=(ch+1)%nch;
+		tredraw();
+		return;
+	case CTRL('p'): //0x10:
+		ch=(ch+nch-1)%nch;
+		tredraw();
+		return;
 	case KEY_PPAGE:
 		chl[ch].n+=SCROLL;
 		tredraw();
@@ -427,14 +433,24 @@ tgetch(void)
 		if (chl[ch].n<0) chl[ch].n=0;
 		tredraw();
 		return;
-	case 0x1: cu=0;   break;
-	case 0x5: cu=len; break;
-	case 0x2:
-	case KEY_LEFT: if (cu) cu--; break;
-	case 0x6:
-	case KEY_RIGHT: if (cu<len) cu++; break;
-	case 0xb: dirty=len=cu; break;
-	case 0x15:
+	case CTRL('a'): //0x1:
+		cu=0;
+		break;
+	case CTRL('e'): //0x5:
+		cu=len;
+		break;
+	case CTRL('b'): //0x2:
+	case KEY_LEFT:
+		if (cu) cu--;
+		break;
+	case CTRL('f'): //0x6:
+	case KEY_RIGHT:
+		if (cu<len) cu++;
+		break;
+	case CTRL('k'): //0xb:
+		dirty=len=cu;
+		break;
+	case CTRL('u'): //0x15:
 		if (cu==0) return;
 		len-=cu;
 		memmove(l, &l[cu], len);
@@ -459,14 +475,21 @@ tgetch(void)
 		l[cu++]=c;
 		break;
 	}
-	/* TODO, add a cleverer printer to deal with long lines. */
-	if (dirty<=len) {
-		wmove(scr.iw, 0, strlen(nick)+2+dirty);
-		wclrtoeol(scr.iw);
-		for (i=dirty; i<len; i++)
-			waddch(scr.iw, l[i]);
-	}
-	wmove(scr.iw, 0, strlen(nick)+2+cu);
+	while (cu<shft)
+		dirty=0, shft -= shft>=scr.x/2 ? scr.x/2 : shft;
+	while (cu>=scr.x+shft)
+		dirty=0, shft += scr.x/2;
+	if (dirty<=shft)
+		i=shft;
+	else if (dirty>scr.x+shft || dirty>len)
+		goto mvcur;
+	else
+		i=dirty;
+	wmove(scr.iw, 0, i-shft);
+	wclrtoeol(scr.iw);
+	for (; i-shft<scr.x && i<len; i++)
+		waddch(scr.iw, l[i]);
+mvcur:	wmove(scr.iw, 0, cu-shft);
 }
 
 static void
@@ -489,7 +512,6 @@ main(void)
 	waddstr(scr.sw, "Welcome in irc.");
 	wrefresh(scr.sw);
 	strcpy(nick, "_mpu");
-	waddstr(scr.iw, "_mpu< ");
 	sfd = dial("chat.freenode.org", 6667);
 	sndf("NICK %s", nick);
 	sndf("USER brebi 8 * :%s", user);
