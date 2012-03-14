@@ -197,7 +197,7 @@ pushf(int cn, const char *fmt, ...)
 		c->eol=c->buf+blen;
 	}
 	t=time(0);
-	if (!(tm=localtime(&t))) panic("localtime failed.");
+	if (!(tm=localtime(&t))) panic("Localtime failed.");
 	n=strftime(c->eol, LineLen, DATEFMT, tm);
 	c->eol[n++] = ' ';
 	va_start(vl, fmt);
@@ -269,12 +269,11 @@ uparse(char *m)
 
 	if (p[1]!=' ' && p[1]!=0) {
 	pmsg:
-		if (ch!=0) {
-			m+=strspn(m, " ");
-			if (!*m) return;
-			pushf(ch, PFMT, nick, m);
-			sndf("PRIVMSG %s :%s", chl[ch].name, m);
-		}
+		if (ch==0) return;
+		m+=strspn(m, " ");
+		if (!*m) return;
+		pushf(ch, PFMT, nick, m);
+		sndf("PRIVMSG %s :%s", chl[ch].name, m);
 		return;
 	}
 	switch (*p) {
@@ -445,12 +444,12 @@ tgetch(void)
 
 	c=wgetch(scr.iw);
 	switch (c) {
-	case CTRL('n'): //0xe:
+	case CTRL('n'):
 		ch=(ch+1)%nch;
 		tdrawbar();
 		tredraw();
 		return;
-	case CTRL('p'): //0x10:
+	case CTRL('p'):
 		ch=(ch+nch-1)%nch;
 		tdrawbar();
 		tredraw();
@@ -464,28 +463,34 @@ tgetch(void)
 		if (chl[ch].n<0) chl[ch].n=0;
 		tredraw();
 		return;
-	case CTRL('a'): //0x1:
+	case CTRL('a'):
 		cu=0;
 		break;
-	case CTRL('e'): //0x5:
+	case CTRL('e'):
 		cu=len;
 		break;
-	case CTRL('b'): //0x2:
+	case CTRL('b'):
 	case KEY_LEFT:
 		if (cu) cu--;
 		break;
-	case CTRL('f'): //0x6:
+	case CTRL('f'):
 	case KEY_RIGHT:
 		if (cu<len) cu++;
 		break;
-	case CTRL('k'): //0xb:
+	case CTRL('k'):
 		dirty=len=cu;
 		break;
-	case CTRL('u'): //0x15:
+	case CTRL('u'):
 		if (cu==0) return;
 		len-=cu;
 		memmove(l, &l[cu], len);
 		dirty=cu=0;
+		break;
+	case CTRL('d'):
+		if (cu>=len) return;
+		memmove(&l[cu], &l[cu+1], len-cu-1);
+		dirty=cu;
+		len--;
 		break;
 	case KEY_BACKSPACE:
 		if (cu==0) return;
