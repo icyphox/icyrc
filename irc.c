@@ -119,11 +119,10 @@ dial(const char *host, short port)
 {
 	int f;
 	struct sockaddr_in sin;
-	struct addrinfo *ai, hai;
+	struct addrinfo *ai, hai = { 0 };
 
 	hai.ai_family = AF_INET;
 	hai.ai_socktype = SOCK_STREAM;
-	hai.ai_flags = hai.ai_protocol = 0;
 	if (getaddrinfo(host, 0, &hai, &ai))
 		panic("Cannot resolve host.");
 	memcpy(&sin, ai->ai_addr, sizeof sin);
