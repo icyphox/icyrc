@@ -37,7 +37,6 @@ struct {
 	int y;
 	WINDOW *sw, *mw, *iw;
 } scr; /* Screen relative data. */
-int eof; /* EOF reached on server side. */
 struct Chan {
 	char name[ChanLen];
 	char *buf, *eol;
