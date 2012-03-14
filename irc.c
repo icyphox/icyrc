@@ -48,6 +48,7 @@ int nch, ch; /* Current number of channels, and current channel. */
 char outb[BufSz], *outp=outb; /* Output buffer. */
 
 static void scmd(char *, char *, char *, char *);
+static void tdrawbar(void);
 static void tredraw(void);
 static void treset(void);
 
@@ -149,8 +150,9 @@ chadd(char *name)
 		panic("Out of memory.");
 	chl[nch].eol=chl[nch].buf;
 	chl[nch].n=0;
-	ch=nch;
-	return nch++;
+	ch=nch++;
+	tdrawbar();
+	return nch;
 }
 
 static inline int
@@ -175,6 +177,7 @@ chdel(char *name)
 	free(chl[n].buf);
 	memmove(&chl[n], &chl[n+1], (nch-n)*sizeof(struct Chan));
 	ch=nch-1;
+	tdrawbar();
 	return 1;
 }
 
@@ -242,6 +245,7 @@ scmd(char *usr, char *cmd, char *par, char *data)
 		if (!ch || !fch || !(s=chfind(ch))) return;
 		chl[s].name[0] = 0;
 		strncat(chl[s].name, fch, ChanLen-1);
+		tdrawbar();
 	} else if (!strcmp(cmd, "471") || !strcmp(cmd, "473")
 	       || !strcmp(cmd, "474") || !strcmp(cmd, "475")) { /* Join error. */
 		if ((pm=strtok(0, " "))) {
@@ -361,6 +365,7 @@ tresize(void)
 	wresize(scr.sw, 1, scr.x);
 	mvwin(scr.iw, scr.y-1, 0);
 	tredraw();
+	tdrawbar();
 }
 
 static void
@@ -407,6 +412,30 @@ tredraw(void)
 }
 
 static void
+tdrawbar(void)
+{
+	size_t l;
+	int fst=ch;
+
+	for (l=0; fst>0 && l<scr.x/2; fst--)
+		l+=strlen(chl[fst].name)+3;
+
+	werase(scr.sw);
+	for (l=0; fst<nch && l<scr.x; fst++) {
+		char *p=chl[fst].name;
+
+		if (fst==ch) wattron(scr.sw, A_BOLD);
+		waddch(scr.sw, '['), l++;
+		for (; *p && l<scr.x; p++, l++)
+			waddch(scr.sw, *p);
+		if (l<scr.x-1)
+			waddstr(scr.sw, "] "), l+=2;
+		if (fst==ch) wattroff(scr.sw, A_BOLD);
+	}
+	wrefresh(scr.sw);
+}
+
+static void
 tgetch(void)
 {
 	static char l[BufSz];
@@ -418,10 +447,12 @@ tgetch(void)
 	switch (c) {
 	case CTRL('n'): //0xe:
 		ch=(ch+1)%nch;
+		tdrawbar();
 		tredraw();
 		return;
 	case CTRL('p'): //0x10:
 		ch=(ch+nch-1)%nch;
+		tdrawbar();
 		tredraw();
 		return;
 	case KEY_PPAGE:
@@ -509,8 +540,6 @@ main(void)
 	if (!user) user="Unknown";
 	tinit();
 	chadd("*server*");
-	waddstr(scr.sw, "Welcome in irc.");
-	wrefresh(scr.sw);
 	strcpy(nick, "_mpu");
 	sfd = dial("chat.freenode.org", 6667);
 	sndf("NICK %s", nick);
