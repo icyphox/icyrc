@@ -265,7 +265,7 @@ uparse(char *m)
 {
 	char *p=m;
 
-	if (p[1]!=' ' && p[1]!=0) {
+	if (!p[0] || (p[1]!=' ' && p[1]!=0)) {
 	pmsg:
 		if (ch==0) return;
 		m+=strspn(m, " ");
