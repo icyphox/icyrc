@@ -25,11 +25,12 @@
 #define SCROLL 15
 #define DATEFMT "%H:%M"
 #define PFMT "%-12s < %s"
+#define SRV "chat.freenode.org"
+#define PORT 6667
 
 enum { ChanLen = 64, LineLen = 512, MaxChans = 16, BufSz = 2048, LogSz = 4096 };
 
 char nick[64];
-char prefix[64];
 int quit, winchg;
 int sfd; /* Server file descriptor. */
 struct {
@@ -536,17 +537,44 @@ treset(void)
 }
 
 int
-main(void)
+main(int argc, char *argv[])
 {
 	const char *user = getenv("USER");
+	const char *ircnick = getenv("IRCNICK");
+	const char *server = SRV;
+	unsigned short port = PORT;
+	int o;
 
-	if (!user) user="Unknown";
+	while ((o=getopt(argc, argv, "hn:u:s:p:"))>=0)
+		switch (o) {
+		case 'h':
+		case '?':
+		usage:
+			fputs("Usage: irc [-n NICK] [-u USER] [-s SERVER] [-p PORT] [-h]\n", stderr);
+			exit(0);
+		case 'n':
+			if (strlen(optarg)>=sizeof nick) goto usage;
+			strcpy(nick, optarg);
+			break;
+		case 'u':
+			user = optarg;
+			break;
+		case 's':
+			server = optarg;
+			break;
+		case 'p':
+			if (!(port=strtol(optarg, 0, 0))) goto usage;
+			break;
+		}
+	if (!nick[0] && ircnick && strlen(ircnick)<sizeof nick)
+		strcpy(nick, ircnick);
+	if (!nick[0]) goto usage;
+	if (!user) user = "Unknown";
 	tinit();
+	sfd = dial(server, port);
 	chadd("*server*");
-	strcpy(nick, "_mpu");
-	sfd = dial("chat.freenode.org", 6667);
 	sndf("NICK %s", nick);
-	sndf("USER brebi 8 * :%s", user);
+	sndf("USER %s 8 * :%s", user, user);
 	sndf("MODE %s +i", nick);
 	while (!quit) {
 		fd_set rfs, wfs;
