@@ -23,9 +23,10 @@
 #include <locale.h>
 
 #define SCROLL 15
+#define INDENT 21
 #define DATEFMT "%H:%M"
 #define PFMT "%-12s < %s"
-#define SRV "chat.freenode.org"
+#define SRV "irc.oftc.net"
 #define PORT 6667
 
 enum { ChanLen = 64, LineLen = 512, MaxChans = 16, BufSz = 2048, LogSz = 4096 };
@@ -98,7 +99,7 @@ srd(void)
 		*s++ = 0;
 		if (*l==':') {
 			if (!(cmd=strchr(l, ' '))) goto lskip;
-				*cmd++ = 0;
+			*cmd++ = 0;
 			usr = l+1;
 		} else {
 			usr = 0;
@@ -180,6 +181,30 @@ chdel(char *name)
 	return 1;
 }
 
+static char *
+pushl(char *p, char *e)
+{
+	int x=0;
+	char *w;
+
+	if ((w=memchr(p, '\n', e-p))) e=w+1;
+	for (w=p;;) {
+		if (p>=e || *p==' ' || p-w+INDENT>=scr.x-1) {
+			for (; w<p; w++)
+				waddch(scr.mw, *w);
+			if (p>=e) return e;
+		}
+		p++;
+		if (++x>=scr.x) {
+			waddch(scr.mw, '\n');
+			for (x=0; x<INDENT; x++)
+				waddch(scr.mw, ' ');
+			if (*w==' ') w++;
+			x+=p-w;
+		}
+	}
+}
+
 static void
 pushf(int cn, const char *fmt, ...)
 {
@@ -210,8 +235,7 @@ pushf(int cn, const char *fmt, ...)
 	if (cn==ch && c->n==0) {
 		char *p=c->eol-n-1;
 		if (p!=c->buf) waddch(scr.mw, '\n');
-		for (; p<c->eol-1; p++)
-			waddch(scr.mw, *p);
+		pushl(p, c->eol-1);
 		wrefresh(scr.mw);
 	}
 }
@@ -404,8 +428,8 @@ tredraw(void)
 	}
 	wclear(scr.mw);
 	wmove(scr.mw, 0, 0);
-	for (; q<p; q++)
-		waddch(scr.mw, *q);
+	while (q<p)
+		q=pushl(q, p);
 	wrefresh(scr.mw);
 }
 
