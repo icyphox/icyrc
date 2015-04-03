@@ -184,23 +184,22 @@ chdel(char *name)
 static char *
 pushl(char *p, char *e)
 {
-	int x=0;
+	int x;
 	char *w;
 
 	if ((w=memchr(p, '\n', e-p))) e=w+1;
-	for (w=p;;) {
-		if (p>=e || *p==' ' || p-w+INDENT>=scr.x-1) {
-			for (; w<p; w++)
-				waddch(scr.mw, *w);
-			if (p>=e) return e;
-		}
-		p++;
-		if (++x>=scr.x) {
+	for (w=p, x=0;; p++, x++) {
+		if (x>=scr.x) {
 			waddch(scr.mw, '\n');
 			for (x=0; x<INDENT; x++)
 				waddch(scr.mw, ' ');
 			if (*w==' ') w++;
 			x+=p-w;
+		}
+		if (p>=e || *p==' ' || p-w+INDENT>=scr.x-1) {
+			for (; w<p; w++)
+				waddch(scr.mw, *w);
+			if (p>=e) return e;
 		}
 	}
 }
