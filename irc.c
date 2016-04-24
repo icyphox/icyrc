@@ -48,6 +48,7 @@ struct Chan {
 } chl[MaxChans];
 int nch, ch; /* Current number of channels, and current channel. */
 char outb[BufSz], *outp=outb; /* Output buffer. */
+static FILE *logfp;
 
 static void scmd(char *, char *, char *, char *);
 static void tdrawbar(void);
@@ -212,7 +213,8 @@ pushf(int cn, const char *fmt, ...)
 	size_t n, blen=c->eol-c->buf;
 	va_list vl;
 	time_t t;
-	struct tm *tm;
+	char *s;
+	struct tm *tm, *gmtm;
 
 	if (blen+LineLen>=c->sz) {
 		c->sz *= 2;
@@ -223,10 +225,22 @@ pushf(int cn, const char *fmt, ...)
 	t=time(0);
 	if (!(tm=localtime(&t))) panic("Localtime failed.");
 	n=strftime(c->eol, LineLen, DATEFMT, tm);
+	if (!(gmtm=gmtime(&t))) panic("Gmtime failed.");
 	c->eol[n++] = ' ';
 	va_start(vl, fmt);
-	n+=vsnprintf(c->eol+n, LineLen-n-1, fmt, vl);
+	s = c->eol + n;
+	n+=vsnprintf(s, LineLen-n-1, fmt, vl);
 	va_end(vl);
+
+	if (logfp) {
+		fprintf(logfp, "%-12.12s\t%04d-%02d-%02dT%02d:%02d:%02dZ\t%s\n",
+			c->name,
+			gmtm->tm_year + 1900, gmtm->tm_mon + 1, gmtm->tm_mday,
+			gmtm->tm_hour, gmtm->tm_min, gmtm->tm_sec,
+			s);
+		fflush(logfp);
+	}
+
 	strcat(c->eol, "\n");
 	if (n>=LineLen-1)
 		c->eol+=LineLen-1;
@@ -569,13 +583,17 @@ main(int argc, char *argv[])
 	unsigned short port = PORT;
 	int o;
 
-	while ((o=getopt(argc, argv, "hn:u:s:p:"))>=0)
+	while ((o=getopt(argc, argv, "hn:u:s:p:l:"))>=0)
 		switch (o) {
 		case 'h':
 		case '?':
 		usage:
-			fputs("Usage: irc [-n NICK] [-u USER] [-s SERVER] [-p PORT] [-h]\n", stderr);
+			fputs("usage: irc [-n NICK] [-u USER] [-s SERVER] [-p PORT] [-l LOGFILE ] [-h]\n", stderr);
 			exit(0);
+		case 'l':
+			if (!(logfp = fopen(optarg, "a")))
+				panic("fopen: logfile");
+			break;
 		case 'n':
 			if (strlen(optarg)>=sizeof nick) goto usage;
 			strcpy(nick, optarg);
