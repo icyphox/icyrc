@@ -22,6 +22,9 @@
 #include <netdb.h>
 #include <locale.h>
 
+#undef CTRL
+#define CTRL(x)     (x & 037)
+
 #define SCROLL 15
 #define INDENT 21
 #define DATEFMT "%H:%M"
