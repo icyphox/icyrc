@@ -46,6 +46,8 @@ struct Chan {
 	char *buf, *eol;
 	int n; /* Scroll offset. */
 	size_t sz; /* size of buf. */
+	char high; /* Nick highlight. */
+	char new; /* New message. */
 } chl[MaxChans];
 int nch, ch; /* Current number of channels, and current channel. */
 char outb[BufSz], *outp=outb; /* Output buffer. */
@@ -258,7 +260,7 @@ pushf(int cn, const char *fmt, ...)
 static void
 scmd(char *usr, char *cmd, char *par, char *data)
 {
-	int s;
+	int s, c;
 	char *pm=strtok(par, " ");
 
 	if (!usr) usr="?";
@@ -269,10 +271,16 @@ scmd(char *usr, char *cmd, char *par, char *data)
 	}
 	if (!strcmp(cmd, "PRIVMSG")) {
 		if (!pm || !data) return;
-		if (strcasestr(data, nick))
-			pushf(chfind(pm), PFMTHIGH, usr, data);
-		else
-			pushf(chfind(pm), PFMT, usr, data);
+		c=chfind(pm);
+		if (strcasestr(data, nick)) {
+			pushf(c, PFMTHIGH, usr, data);
+			chl[c].high |= ch != c;
+		} else 
+			pushf(c, PFMT, usr, data);
+		if (ch != c) {
+			chl[c].new=1;
+			tdrawbar();
+		}
 	} else if (!strcmp(cmd, "PING")) {
 		sndf("PONG :%s", data?data:"(null)");
 	} else if (!strcmp(cmd, "PART")) {
@@ -466,6 +474,8 @@ tdrawbar(void)
 
 		if (fst==ch) wattron(scr.sw, A_BOLD);
 		waddch(scr.sw, '['), l++;
+		if (chl[fst].high) waddch(scr.sw, '>'), l++;
+		else if (chl[fst].new) waddch(scr.sw, '+'), l++;
 		for (; *p && l<scr.x; p++, l++)
 			waddch(scr.sw, *p);
 		if (l<scr.x-1)
@@ -487,11 +497,13 @@ tgetch(void)
 	switch (c) {
 	case CTRL('n'):
 		ch=(ch+1)%nch;
+		chl[ch].high=chl[ch].new=0;
 		tdrawbar();
 		tredraw();
 		return;
 	case CTRL('p'):
 		ch=(ch+nch-1)%nch;
+		chl[ch].high=chl[ch].new=0;
 		tdrawbar();
 		tredraw();
 		return;
@@ -595,7 +607,7 @@ main(int argc, char *argv[])
 			fputs("usage: irc [-n NICK] [-u USER] [-s SERVER] [-p PORT] [-l LOGFILE ] [-h]\n", stderr);
 			exit(0);
 		case 'l':
-			if (!(logfp = fopen(optarg, "a")))
+			if (!(logfp=fopen(optarg, "a")))
 				panic("fopen: logfile");
 			break;
 		case 'n':
@@ -615,9 +627,9 @@ main(int argc, char *argv[])
 	if (!nick[0] && ircnick && strlen(ircnick)<sizeof nick)
 		strcpy(nick, ircnick);
 	if (!nick[0]) goto usage;
-	if (!user) user = "Unknown";
+	if (!user) user="anonymous";
 	tinit();
-	sfd = dial(server, port);
+	sfd=dial(server, port);
 	chadd("*server*");
 	sndf("NICK %s", nick);
 	sndf("USER %s 8 * :%s", user, user);
