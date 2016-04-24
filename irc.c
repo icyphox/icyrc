@@ -21,12 +21,13 @@
 #include <locale.h>
 
 #undef CTRL
-#define CTRL(x)     (x & 037)
+#define CTRL(x)  (x & 037)
 
 #define SCROLL 15
 #define INDENT 21
 #define DATEFMT "%H:%M"
-#define PFMT "%-12s < %s"
+#define PFMT "  %-12s < %s"
+#define PFMTHIGH "> %-12s < %s"
 #define SRV "irc.oftc.net"
 #define PORT 6667
 
@@ -268,7 +269,10 @@ scmd(char *usr, char *cmd, char *par, char *data)
 	}
 	if (!strcmp(cmd, "PRIVMSG")) {
 		if (!pm || !data) return;
-		pushf(chfind(pm), PFMT, usr, data);
+		if (strcasestr(data, nick))
+			pushf(chfind(pm), PFMTHIGH, usr, data);
+		else
+			pushf(chfind(pm), PFMT, usr, data);
 	} else if (!strcmp(cmd, "PING")) {
 		sndf("PONG :%s", data?data:"(null)");
 	} else if (!strcmp(cmd, "PART")) {
