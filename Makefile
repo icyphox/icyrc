@@ -1,6 +1,11 @@
-build: clean
-	cc irc.c -o irc -lncurses -Wall -std=c99 -Os
-	strip irc
+BIN = irc
+
+CFLAGS = -std=c99 -Os -D_POSIX_C_SOURCE=201112
+LDFLAGS = -lncurses
+
+all: ${BIN}
 
 clean:
-	rm -f irc
+	rm -f ${BIN} *.o
+
+.PHONY: all clean
