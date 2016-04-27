@@ -1,0 +1,42 @@
+IRC client                               http://c9x.me/irc/
+===========================================================
+
+This is a simple irc client, it requires the ncurses
+library to compile.
+
+For usage information, read ./irc -h
+
+- TLS support using relayd
+--------------------------
+
+This sets up a relay TCP connection on localhost. This
+way you can connect using a more secure TLS connection
+with a IRC program that doesn't have TLS support builtin.
+
+
+/etc/relayd.conf:
+
+	table <freenode> { irc.freenode.net }
+	table <oftc> { irc.oftc.net }
+
+	protocol "irctls" {
+		tcp { nodelay, sack }
+	}
+
+	relay "freenode" {
+		listen on 127.0.0.1 port 6668
+		protocol "irctls"
+		forward with tls to <freenode> port 6697
+	}
+
+	relay "oftc" {
+		listen on 127.0.0.1 port 6669
+		protocol "irctls"
+		forward with tls to <oftc> port 6697
+	}
+
+
+Then connect:
+
+	./irc -n nick -u name -s 127.0.0.1 -p 6668
+	./irc -n nick -u name -s 127.0.0.1 -p 6669
