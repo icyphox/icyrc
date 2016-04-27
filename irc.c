@@ -1,5 +1,3 @@
-/*% cc -g -Wall -lncurses -o # %
- */
 #include <assert.h>
 #include <limits.h>
 #include <signal.h>
