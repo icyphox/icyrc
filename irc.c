@@ -24,7 +24,7 @@
 #define CTRL(x)  (x & 037)
 
 #define SCROLL 15
-#define INDENT 21
+#define INDENT 23
 #define DATEFMT "%H:%M"
 #define PFMT "  %-12s < %s"
 #define PFMTHIGH "> %-12s < %s"
