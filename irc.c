@@ -440,6 +440,8 @@ tresize(void)
 	winchg = 0;
 	if (ioctl(0, TIOCGWINSZ, &ws) < 0)
 		panic("Ioctl (TIOCGWINSZ) failed.");
+	if (ws.ws_row <= 2)
+		return;
 	resizeterm(scr.y = ws.ws_row, scr.x = ws.ws_col);
 	wresize(scr.mw, scr.y - 2, scr.x);
 	wresize(scr.iw, 1, scr.x);
@@ -454,7 +456,7 @@ tredraw(void)
 {
 	struct Chan *const c = &chl[ch];
 	char *q, *p;
-	int llen = 0, nl = -1;
+	int nl = -1;
 
 	if (c->eol == c->buf) {
 		wclear(scr.mw);
@@ -464,7 +466,6 @@ tredraw(void)
 	p = c->eol - 1;
 	if (c->n) {
 		int i = c->n;
-
 		for (; p > c->buf; p--)
 			if (*p == '\n' && !i--)
 				break;
@@ -473,24 +474,15 @@ tredraw(void)
 	}
 	q = p;
 	while (nl < scr.y - 2) {
-		llen = 0;
 		while (*q != '\n' && q > c->buf)
-			q--, llen++;
-		nl += 1 + llen / scr.x;
+			q--;
+		nl++;
 		if (q == c->buf)
 			break;
 		q--;
 	}
 	if (q != c->buf)
 		q += 2;
-	for (llen = 0; nl > scr.y - 2;) { /* Maybe we must split the top line. */
-		if (q[llen] == '\n' || llen >= scr.x) {
-			q += llen + (q[llen] == '\n');
-			llen = 0;
-			nl--;
-		} else
-			llen++;
-	}
 	wclear(scr.mw);
 	wmove(scr.mw, 0, 0);
 	while (q < p)
