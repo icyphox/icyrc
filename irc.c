@@ -441,8 +441,6 @@ tresize(void)
 	if (ioctl(0, TIOCGWINSZ, &ws) < 0)
 		panic("Ioctl (TIOCGWINSZ) failed.");
 	resizeterm(scr.y = ws.ws_row, scr.x = ws.ws_col);
-	if (scr.y < 3 || scr.x < 10)
-		panic("Screen too small.");
 	wresize(scr.mw, scr.y - 2, scr.x);
 	wresize(scr.iw, 1, scr.x);
 	wresize(scr.sw, 1, scr.x);
