@@ -279,11 +279,12 @@ chdel(char *name)
 static char *
 pushl(char *p, char *e)
 {
-	int x;
+	int x, cl;
 	char *w;
-	Rune u;
+	Rune u[2];
 	cchar_t cc;
 
+	u[1] = 0;
 	if ((w = memchr(p, '\n', e - p)))
 		e = w + 1;
 	w = p;
@@ -299,15 +300,18 @@ pushl(char *p, char *e)
 		}
 		if (p >= e || *p == ' ' || p - w + INDENT >= scr.x - 1) {
 			while (w < p) {
-				w += utf8decode(w, &u, UtfSz);
-				setcchar(&cc, &u, 0, 0, 0);
-				wadd_wch(scr.mw, &cc);
+				w += utf8decode(w, u, UtfSz);
+				if (wcwidth(*u) > 0 || *u == '\n') {
+					setcchar(&cc, u, 0, 0, 0);
+					wadd_wch(scr.mw, &cc);
+				}
 			}
 			if (p >= e)
 				return e;
 		}
-		p += utf8decode(p, &u, UtfSz);
-		x += wcwidth(u);
+		p += utf8decode(p, u, UtfSz);
+		if ((cl = wcwidth(*u)) >= 0)
+			x += cl;
 	}
 }
 
