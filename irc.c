@@ -19,6 +19,7 @@
 #include <netinet/tcp.h>
 #include <netdb.h>
 #include <locale.h>
+#include <wchar.h>
 
 #undef CTRL
 #define CTRL(x)  (x & 037)
@@ -36,16 +37,20 @@ enum {
 	LineLen = 512,
 	MaxChans = 16,
 	BufSz = 2048,
-	LogSz = 4096
+	LogSz = 4096,
+	UtfSz = 4,
+	RuneInvalid = 0xFFFD,
 };
 
-struct {
+typedef unsigned int Rune;
+
+static struct {
 	int x;
 	int y;
 	WINDOW *sw, *mw, *iw;
 } scr;
 
-struct Chan {
+static struct Chan {
 	char name[ChanLen];
 	char *buf, *eol;
 	int n;     /* Scroll offset. */
@@ -54,12 +59,17 @@ struct Chan {
 	char new;  /* New message. */
 } chl[MaxChans];
 
-char nick[64];
-int quit, winchg;
-int sfd; /* Server file descriptor. */
-int nch, ch; /* Current number of channels, and current channel. */
-char outb[BufSz], *outp = outb; /* Output buffer. */
+static char nick[64];
+static int quit, winchg;
+static int sfd; /* Server file descriptor. */
+static int nch, ch; /* Current number of channels, and current channel. */
+static char outb[BufSz], *outp = outb; /* Output buffer. */
 static FILE *logfp;
+
+static unsigned char utfbyte[UtfSz + 1] = {0x80,    0, 0xC0, 0xE0, 0xF0};
+static unsigned char utfmask[UtfSz + 1] = {0xC0, 0x80, 0xE0, 0xF0, 0xF8};
+static Rune utfmin[UtfSz + 1] = {       0,    0,  0x80,  0x800,  0x10000};
+static Rune utfmax[UtfSz + 1] = {0x10FFFF, 0x7F, 0x7FF, 0xFFFF, 0x10FFFF};
 
 static void scmd(char *, char *, char *, char *);
 static void tdrawbar(void);
@@ -72,6 +82,71 @@ panic(const char *m)
 	treset();
 	fprintf(stderr, "Panic: %s\n", m);
 	exit(1);
+}
+
+static size_t
+utf8validate(Rune *u, size_t i)
+{
+	if (*u < utfmin[i] || *u > utfmax[i] || (0xD800 <= *u && *u <= 0xDFFF))
+		*u = RuneInvalid;
+	for (i = 1; *u > utfmax[i]; ++i)
+		;
+	return i;
+}
+
+static Rune
+utf8decodebyte(unsigned char c, size_t *i)
+{
+	for (*i = 0; *i < UtfSz + 1; ++(*i))
+		if ((c & utfmask[*i]) == utfbyte[*i])
+			return c & ~utfmask[*i];
+	return 0;
+}
+
+static size_t
+utf8decode(char *c, Rune *u, size_t clen)
+{
+	size_t i, j, len, type;
+	Rune udecoded;
+
+	*u = RuneInvalid;
+	if (!clen)
+		return 0;
+	udecoded = utf8decodebyte(c[0], &len);
+	if (len < 1 || len > UtfSz)
+		return 1;
+	for (i = 1, j = 1; i < clen && j < len; ++i, ++j) {
+		udecoded = (udecoded << 6) | utf8decodebyte(c[i], &type);
+		if (type != 0)
+			return j;
+	}
+	if (j < len)
+		return 0;
+	*u = udecoded;
+	utf8validate(u, len);
+	return len;
+}
+
+static char
+utf8encodebyte(Rune u, size_t i)
+{
+	return utfbyte[i] | (u & ~utfmask[i]);
+}
+
+static size_t
+utf8encode(Rune u, char *c)
+{
+	size_t len, i;
+
+	len = utf8validate(&u, 0);
+	if (len > UtfSz)
+		return 0;
+	for (i = len - 1; i != 0; --i) {
+		c[i] = utf8encodebyte(u, 0);
+		u >>= 6;
+	}
+	c[0] = utf8encodebyte(u, len);
+	return len;
 }
 
 static void
@@ -206,10 +281,14 @@ pushl(char *p, char *e)
 {
 	int x;
 	char *w;
+	Rune u;
+	cchar_t cc;
 
 	if ((w = memchr(p, '\n', e - p)))
 		e = w + 1;
-	for (w = p, x = 0;; p++, x++) {
+	w = p;
+	x = 0;
+	for (;;) {
 		if (x >= scr.x) {
 			waddch(scr.mw, '\n');
 			for (x = 0; x < INDENT; x++)
@@ -219,11 +298,16 @@ pushl(char *p, char *e)
 			x += p - w;
 		}
 		if (p >= e || *p == ' ' || p - w + INDENT >= scr.x - 1) {
-			for (; w < p; w++)
-				waddch(scr.mw, *w);
+			while (w < p) {
+				w += utf8decode(w, &u, UtfSz);
+				setcchar(&cc, &u, 0, 0, 0);
+				wadd_wch(scr.mw, &cc);
+			}
 			if (p >= e)
 				return e;
 		}
+		p += utf8decode(p, &u, UtfSz);
+		x += wcwidth(u);
 	}
 }
 
@@ -502,7 +586,6 @@ tdrawbar(void)
 	werase(scr.sw);
 	for (l = 0; fst < nch && l < scr.x; fst++) {
 		char *p = chl[fst].name;
-
 		if (fst == ch)
 			wattron(scr.sw, A_BOLD);
 		waddch(scr.sw, '['), l++;
