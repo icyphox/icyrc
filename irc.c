@@ -756,11 +756,12 @@ main(int argc, char *argv[])
 {
 	const char *user = getenv("USER");
 	const char *ircnick = getenv("IRCNICK");
+	const char *key = getenv("IRCPASS");
 	const char *server = SRV;
 	const char *port = PORT;
 	int o;
 
-	while ((o = getopt(argc, argv, "hn:u:s:p:l:")) >= 0)
+	while ((o = getopt(argc, argv, "hk:n:u:s:p:l:")) >= 0)
 		switch (o) {
 		case 'h':
 		case '?':
@@ -795,6 +796,8 @@ main(int argc, char *argv[])
 	tinit();
 	sfd = dial(server, port);
 	chadd("*server*", 1);
+	if (key)
+		sndf("PASS %s", key);
 	sndf("NICK %s", nick);
 	sndf("USER %s 8 * :%s", user, user);
 	sndf("MODE %s +i", nick);
