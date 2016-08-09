@@ -30,7 +30,7 @@
 #define PFMT     "  %-12s < %s"
 #define PFMTHIGH "> %-12s < %s"
 #define SRV      "irc.oftc.net"
-#define PORT     6667
+#define PORT     "6667"
 
 enum {
 	ChanLen = 64,
@@ -211,25 +211,30 @@ srd(void)
 }
 
 static int
-dial(const char *host, short port)
+dial(const char *host, const char *service)
 {
-	int f;
-	struct sockaddr_in sin;
-	struct addrinfo *ai, hai = { 0 };
+	struct addrinfo hints, *res = NULL, *rp;
+	int fd = -1, e;
 
-	hai.ai_family = AF_INET;
-	hai.ai_socktype = SOCK_STREAM;
-	if (getaddrinfo(host, 0, &hai, &ai))
-		panic("Cannot resolve host.");
-	memcpy(&sin, ai->ai_addr, sizeof sin);
-	sin.sin_port = htons(port);
-	freeaddrinfo(ai);
-	f = socket(AF_INET, SOCK_STREAM, 0);
-	if (f < 0)
-		panic("Cannot create socket.");
-	if (connect(f, (struct sockaddr *)&sin, sizeof sin) < 0)
+	memset(&hints, 0, sizeof(hints));
+	hints.ai_family = AF_UNSPEC;     /* allow IPv4 or IPv6 */
+	hints.ai_flags = AI_NUMERICSERV; /* avoid name lookup for port */
+	hints.ai_socktype = SOCK_STREAM;
+	if ((e = getaddrinfo(host, service, &hints, &res)))
+		panic("Getaddrinfo failed.");
+	for (rp = res; rp; rp = rp->ai_next) {
+		if ((fd = socket(res->ai_family, res->ai_socktype, res->ai_protocol)) == -1)
+			continue;
+		if (connect(fd, res->ai_addr, res->ai_addrlen) == -1) {
+			close(fd);
+			continue;
+		}
+		break;
+	}
+	if (fd == -1)
 		panic("Cannot connect to host.");
-	return f;
+	freeaddrinfo(res);
+	return fd;
 }
 
 static int
@@ -728,7 +733,7 @@ main(int argc, char *argv[])
 	const char *user = getenv("USER");
 	const char *ircnick = getenv("IRCNICK");
 	const char *server = SRV;
-	unsigned short port = PORT;
+	const char *port = PORT;
 	int o;
 
 	while ((o = getopt(argc, argv, "hn:u:s:p:l:")) >= 0)
@@ -754,8 +759,7 @@ main(int argc, char *argv[])
 			server = optarg;
 			break;
 		case 'p':
-			if (!(port = strtol(optarg, 0, 0)))
-				goto usage;
+			port = optarg;
 			break;
 		}
 	if (!nick[0] && ircnick && strlen(ircnick) < sizeof nick)
