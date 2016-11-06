@@ -677,6 +677,7 @@ tgetch(void)
 		dirty = cu;
 		len--;
 		break;
+	case CTRL('h'):
 	case KEY_BACKSPACE:
 		if (cu == 0)
 			return;
