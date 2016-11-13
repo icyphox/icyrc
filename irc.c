@@ -685,6 +685,18 @@ tgetch(void)
 		dirty = --cu;
 		len--;
 		break;
+	case CTRL('w'):
+		if (cu == 0)
+			break;
+		i = 1;
+		while (l[cu - i] == ' ' && cu - i != 0) i++;
+		while (l[cu - i] != ' ' && cu - i != 0) i++;
+		if (cu - i != 0) i--;
+		memmove(&l[cu - i], &l[cu], len - cu);
+		cu -= i;
+		dirty = cu;
+		len -= i;
+		break;
 	case '\n':
 		l[len] = 0;
 		uparse(l);
