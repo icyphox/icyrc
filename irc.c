@@ -826,7 +826,6 @@ main(int argc, char *argv[])
 	sndf("MODE %s +i", nick);
 	while (!quit) {
 		fd_set rfs, wfs;
-
 		int ret;
 
 		if (winchg)
