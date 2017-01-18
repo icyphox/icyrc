@@ -869,10 +869,13 @@ main(int argc, char *argv[])
 			wrefresh(scr.iw);
 		}
 	}
-	SSL_shutdown(srv.ssl);
-	SSL_free(srv.ssl);
-	close(srv.fd);
-	SSL_CTX_free(srv.ctx);
+	if (ssl) {
+		SSL_shutdown(srv.ssl);
+		SSL_free(srv.ssl);
+		close(srv.fd);
+		SSL_CTX_free(srv.ctx);
+	} else
+		close(srv.fd);
 	while (nch--)
 		free(chl[nch].buf);
 	treset();
