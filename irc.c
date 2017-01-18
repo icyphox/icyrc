@@ -20,6 +20,7 @@
 #include <netdb.h>
 #include <locale.h>
 #include <wchar.h>
+#include <openssl/ssl.h>
 
 #undef CTRL
 #define CTRL(x)  (x & 037)
@@ -59,9 +60,14 @@ static struct Chan {
 	char new;  /* New message. */
 } chl[MaxChans];
 
+static int ssl;
+static struct {
+	int fd;
+	SSL *ssl;
+	SSL_CTX *ctx;
+} srv;
 static char nick[64];
 static int quit, winchg;
-static int sfd; /* Server file descriptor. */
 static int nch, ch; /* Current number of channels, and current channel. */
 static char outb[BufSz], *outp = outb; /* Output buffer. */
 static FILE *logfp;
@@ -174,7 +180,10 @@ srd(void)
 
 	if (p - l >= BufSz)
 		p = l; /* Input buffer overflow, there should something better to do. */
-	rd = read(sfd, p, BufSz - (p - l));
+	if (ssl)
+		rd = SSL_read(srv.ssl, p, BufSz - (p - l));
+	else
+		rd = read(srv.fd, p, BufSz - (p - l));
 	if (rd < 0) {
 		if (errno == EINTR)
 			return 1;
@@ -210,7 +219,7 @@ srd(void)
 	}
 }
 
-static int
+static void
 dial(const char *host, const char *service)
 {
 	struct addrinfo hints, *res = NULL, *rp;
@@ -233,8 +242,19 @@ dial(const char *host, const char *service)
 	}
 	if (fd == -1)
 		panic("Cannot connect to host.");
+	srv.fd = fd;
+	if (ssl) {
+		SSL_load_error_strings();
+		SSL_library_init();
+		srv.ctx = SSL_CTX_new(SSLv23_client_method());
+		if (!srv.ctx)
+			panic("Could not initialize ssl context.");
+		srv.ssl = SSL_new(srv.ctx);
+		if (SSL_set_fd(srv.ssl, srv.fd) == 0
+		|| SSL_connect(srv.ssl) != 1)
+			panic("Could not connect with ssl.");
+	}
 	freeaddrinfo(res);
-	return fd;
 }
 
 static int
@@ -761,12 +781,12 @@ main(int argc, char *argv[])
 	const char *port = PORT;
 	int o;
 
-	while ((o = getopt(argc, argv, "hk:n:u:s:p:l:")) >= 0)
+	while ((o = getopt(argc, argv, "thk:n:u:s:p:l:")) >= 0)
 		switch (o) {
 		case 'h':
 		case '?':
 		usage:
-			fputs("usage: irc [-n NICK] [-u USER] [-s SERVER] [-p PORT] [-l LOGFILE ] [-h]\n", stderr);
+			fputs("usage: irc [-n NICK] [-u USER] [-s SERVER] [-p PORT] [-l LOGFILE ] [-t] [-h]\n", stderr);
 			exit(0);
 		case 'l':
 			if (!(logfp = fopen(optarg, "a")))
@@ -776,6 +796,9 @@ main(int argc, char *argv[])
 			if (strlen(optarg) >= sizeof nick)
 				goto usage;
 			strcpy(nick, optarg);
+			break;
+		case 't':
+			ssl = 1;
 			break;
 		case 'u':
 			user = optarg;
@@ -794,7 +817,7 @@ main(int argc, char *argv[])
 	if (!user)
 		user = "anonymous";
 	tinit();
-	sfd = dial(server, port);
+	dial(server, port);
 	chadd("*server*", 1);
 	if (key)
 		sndf("PASS %s", key);
@@ -811,23 +834,26 @@ main(int argc, char *argv[])
 		FD_ZERO(&wfs);
 		FD_ZERO(&rfs);
 		FD_SET(0, &rfs);
-		FD_SET(sfd, &rfs);
+		FD_SET(srv.fd, &rfs);
 		if (outp != outb)
-			FD_SET(sfd, &wfs);
-		ret = select(sfd + 1, &rfs, &wfs, 0, 0);
+			FD_SET(srv.fd, &wfs);
+		ret = select(srv.fd + 1, &rfs, &wfs, 0, 0);
 		if (ret < 0) {
 			if (errno == EINTR)
 				continue;
 			panic("Select failed.");
 		}
-		if (FD_ISSET(sfd, &rfs)) {
+		if (FD_ISSET(srv.fd, &rfs)) {
 			if (!srd())
 				quit = 1;
 		}
-		if (FD_ISSET(sfd, &wfs)) {
+		if (FD_ISSET(srv.fd, &wfs)) {
 			int wr;
 
-			wr = write(sfd, outb, outp - outb);
+			if (ssl)
+				wr = SSL_write(srv.ssl, outb, outp - outb);
+			else
+				wr = write(srv.fd, outb, outp - outb);
 			if (wr < 0) {
 				if (errno == EINTR)
 					continue;
@@ -843,7 +869,10 @@ main(int argc, char *argv[])
 			wrefresh(scr.iw);
 		}
 	}
-	close(sfd);
+	SSL_shutdown(srv.ssl);
+	SSL_free(srv.ssl);
+	close(srv.fd);
+	SSL_CTX_free(srv.ctx);
 	while (nch--)
 		free(chl[nch].buf);
 	treset();
