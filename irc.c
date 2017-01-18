@@ -238,7 +238,7 @@ dial(const char *host, const char *service)
 }
 
 static int
-chadd(char *name)
+chadd(char *name, int change)
 {
 	if (nch >= MaxChans || strlen(name) >= ChanLen)
 		return -1;
@@ -249,7 +249,9 @@ chadd(char *name)
 		panic("Out of memory.");
 	chl[nch].eol = chl[nch].buf;
 	chl[nch].n = 0;
-	ch = nch++;
+	if (change)
+		ch = nch;
+	nch++;
 	tdrawbar();
 	return nch;
 }
@@ -376,7 +378,7 @@ static void
 scmd(char *usr, char *cmd, char *par, char *data)
 {
 	int s, c;
-	char *pm = strtok(par, " ");
+	char *pm = strtok(par, " "), *chan;
 
 	if (!usr)
 		usr = "?";
@@ -388,7 +390,16 @@ scmd(char *usr, char *cmd, char *par, char *data)
 	if (!strcmp(cmd, "PRIVMSG")) {
 		if (!pm || !data)
 			return;
-		c = chfind(pm);
+		if (strchr("&#!+.~", pm[0]))
+			chan = pm;
+		else
+			chan = usr;
+		if (!(c = chfind(chan))) {
+			if (chadd(chan, 0) < 0)
+				return;
+			tredraw();
+		}
+		c = chfind(chan);
 		if (strcasestr(data, nick)) {
 			pushf(c, PFMTHIGH, usr, data);
 			chl[c].high |= ch != c;
@@ -453,7 +464,7 @@ uparse(char *m)
 		p += 1 + (p[1] == ' ');
 		p = strtok(p, " ");
 		while (p) {
-			if (chadd(p) < 0)
+			if (chadd(p, 1) < 0)
 				break;
 			sndf("JOIN %s", p);
 			p = strtok(0, " ");
@@ -783,7 +794,7 @@ main(int argc, char *argv[])
 		user = "anonymous";
 	tinit();
 	sfd = dial(server, port);
-	chadd("*server*");
+	chadd("*server*", 1);
 	sndf("NICK %s", nick);
 	sndf("USER %s 8 * :%s", user, user);
 	sndf("MODE %s +i", nick);
