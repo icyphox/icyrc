@@ -915,7 +915,6 @@ main(int argc, char *argv[])
 			tgetch();
 			wrefresh(scr.iw);
 		}
-		continue;
 	}
 	hangup();
 	while (nch--)
