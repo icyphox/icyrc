@@ -39,6 +39,7 @@ enum {
 	MaxChans = 16,
 	BufSz = 2048,
 	LogSz = 4096,
+	MaxRecons = 10, /* -1 for infinitely many */
 	UtfSz = 4,
 	RuneInvalid = 0xFFFD,
 };
@@ -58,6 +59,7 @@ static struct Chan {
 	size_t sz; /* Size of buf. */
 	char high; /* Nick highlight. */
 	char new;  /* New message. */
+	char join; /* Channel was 'j'-oined. */
 } chl[MaxChans];
 
 static int ssl;
@@ -184,12 +186,7 @@ srd(void)
 		rd = SSL_read(srv.ssl, p, BufSz - (p - l));
 	else
 		rd = read(srv.fd, p, BufSz - (p - l));
-	if (rd < 0) {
-		if (errno == EINTR)
-			return 1;
-		panic("IO error while reading.");
-	}
-	if (rd == 0)
+	if (rd <= 0)
 		return 0;
 	p += rd;
 	for (;;) { /* Cycle on all received lines. */
@@ -220,6 +217,16 @@ srd(void)
 }
 
 static void
+sinit(const char *key, const char *nick, const char *user)
+{
+	if (key)
+		sndf("PASS %s", key);
+	sndf("NICK %s", nick);
+	sndf("USER %s 8 * :%s", user, user);
+	sndf("MODE %s +i", nick);
+}
+
+static char *
 dial(const char *host, const char *service)
 {
 	struct addrinfo hints, *res = NULL, *rp;
@@ -230,7 +237,7 @@ dial(const char *host, const char *service)
 	hints.ai_flags = AI_NUMERICSERV; /* avoid name lookup for port */
 	hints.ai_socktype = SOCK_STREAM;
 	if ((e = getaddrinfo(host, service, &hints, &res)))
-		panic("Getaddrinfo failed.");
+		return "Getaddrinfo failed.";
 	for (rp = res; rp; rp = rp->ai_next) {
 		if ((fd = socket(res->ai_family, res->ai_socktype, res->ai_protocol)) == -1)
 			continue;
@@ -241,43 +248,43 @@ dial(const char *host, const char *service)
 		break;
 	}
 	if (fd == -1)
-		panic("Cannot connect to host.");
+		return "Cannot connect to host.";
 	srv.fd = fd;
 	if (ssl) {
 		SSL_load_error_strings();
 		SSL_library_init();
 		srv.ctx = SSL_CTX_new(SSLv23_client_method());
 		if (!srv.ctx)
-			panic("Could not initialize ssl context.");
+			return "Could not initialize ssl context.";
 		srv.ssl = SSL_new(srv.ctx);
 		if (SSL_set_fd(srv.ssl, srv.fd) == 0
 		|| SSL_connect(srv.ssl) != 1)
-			panic("Could not connect with ssl.");
+			return "Could not connect with ssl.";
 	}
 	freeaddrinfo(res);
+	return 0;
 }
 
-static int
-chadd(char *name, int change)
+static void
+hangup(void)
 {
-	if (nch >= MaxChans || strlen(name) >= ChanLen)
-		return -1;
-	strcpy(chl[nch].name, name);
-	chl[nch].sz = LogSz;
-	chl[nch].buf = malloc(LogSz);
-	if (!chl[nch].buf)
-		panic("Out of memory.");
-	chl[nch].eol = chl[nch].buf;
-	chl[nch].n = 0;
-	if (change)
-		ch = nch;
-	nch++;
-	tdrawbar();
-	return nch;
+	if (srv.ssl) {
+		SSL_shutdown(srv.ssl);
+		SSL_free(srv.ssl);
+		srv.ssl = 0;
+	}
+	if (srv.fd) {
+		close(srv.fd);
+		srv.fd = 0;
+	}
+	if (srv.ctx) {
+		SSL_CTX_free(srv.ctx);
+		srv.ctx = 0;
+	}
 }
 
 static inline int
-chfind(char *name)
+chfind(const char *name)
 {
 	int i;
 
@@ -286,6 +293,30 @@ chfind(char *name)
 		if (!strcmp(chl[i].name, name))
 			break;
 	return i;
+}
+
+static int
+chadd(const char *name, int joined)
+{
+	int n;
+
+	if (nch >= MaxChans || strlen(name) >= ChanLen)
+		return -1;
+	if ((n = chfind(name)) > 0)
+		return n;
+	strcpy(chl[nch].name, name);
+	chl[nch].sz = LogSz;
+	chl[nch].buf = malloc(LogSz);
+	if (!chl[nch].buf)
+		panic("Out of memory.");
+	chl[nch].eol = chl[nch].buf;
+	chl[nch].n = 0;
+	chl[nch].join = joined;
+	if (joined)
+		ch = nch;
+	nch++;
+	tdrawbar();
+	return nch;
 }
 
 static int
@@ -779,8 +810,10 @@ main(int argc, char *argv[])
 	const char *key = getenv("IRCPASS");
 	const char *server = SRV;
 	const char *port = PORT;
-	int o;
+	char *err;
+	int o, reconn;
 
+	signal(SIGPIPE, SIG_IGN);
 	while ((o = getopt(argc, argv, "thk:n:u:s:p:l:")) >= 0)
 		switch (o) {
 		case 'h':
@@ -817,14 +850,15 @@ main(int argc, char *argv[])
 	if (!user)
 		user = "anonymous";
 	tinit();
-	dial(server, port);
-	chadd("*server*", 1);
-	if (key)
-		sndf("PASS %s", key);
-	sndf("NICK %s", nick);
-	sndf("USER %s 8 * :%s", user, user);
-	sndf("MODE %s +i", nick);
+	err = dial(server, port);
+	if (err)
+		panic(err);
+	chadd(server, 0);
+	sinit(key, nick, user);
+	reconn = 0;
 	while (!quit) {
+		struct timeval t = {.tv_sec = 5};
+		struct Chan *c;
 		fd_set rfs, wfs;
 		int ret;
 
@@ -833,18 +867,35 @@ main(int argc, char *argv[])
 		FD_ZERO(&wfs);
 		FD_ZERO(&rfs);
 		FD_SET(0, &rfs);
-		FD_SET(srv.fd, &rfs);
-		if (outp != outb)
-			FD_SET(srv.fd, &wfs);
-		ret = select(srv.fd + 1, &rfs, &wfs, 0, 0);
+		if (!reconn) {
+			FD_SET(srv.fd, &rfs);
+			if (outp != outb)
+				FD_SET(srv.fd, &wfs);
+		}
+		ret = select(srv.fd + 1, &rfs, &wfs, 0, &t);
 		if (ret < 0) {
 			if (errno == EINTR)
 				continue;
 			panic("Select failed.");
 		}
+		if (reconn) {
+			hangup();
+			if (reconn++ == MaxRecons + 1)
+				panic("Link lost.");
+			pushf(0, "-!- Link lost, attempting reconnection...");
+			if (dial(server, port) != 0)
+				continue;
+			sinit(key, nick, user);
+			for (c = chl; c < &chl[nch]; ++c)
+				if (c->join)
+					sndf("JOIN %s", c->name);
+			reconn = 0;
+		}
 		if (FD_ISSET(srv.fd, &rfs)) {
-			if (!srd())
-				quit = 1;
+			if (!srd()) {
+				reconn = 1;
+				continue;
+			}
 		}
 		if (FD_ISSET(srv.fd, &wfs)) {
 			int wr;
@@ -853,13 +904,10 @@ main(int argc, char *argv[])
 				wr = SSL_write(srv.ssl, outb, outp - outb);
 			else
 				wr = write(srv.fd, outb, outp - outb);
-			if (wr < 0) {
-				if (errno == EINTR)
-					continue;
-				panic("Write error.");
-			}
-			if (wr == 0)
+			if (wr <= 0) {
+				reconn = wr < 0;
 				continue;
+			}
 			outp -= wr;
 			memmove(outb, outb + wr, outp - outb);
 		}
@@ -867,14 +915,9 @@ main(int argc, char *argv[])
 			tgetch();
 			wrefresh(scr.iw);
 		}
+		continue;
 	}
-	if (ssl) {
-		SSL_shutdown(srv.ssl);
-		SSL_free(srv.ssl);
-		close(srv.fd);
-		SSL_CTX_free(srv.ctx);
-	} else
-		close(srv.fd);
+	hangup();
 	while (nch--)
 		free(chl[nch].buf);
 	treset();
