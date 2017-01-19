@@ -582,6 +582,7 @@ tinit(void)
 	scrollok(scr.mw, 1);
 	if (has_colors() == TRUE) {
 		start_color();
+		use_default_colors();
 		init_pair(1, COLOR_WHITE, COLOR_BLUE);
 		wbkgd(scr.sw, COLOR_PAIR(1));
 	}
