@@ -844,12 +844,14 @@ main(int argc, char *argv[])
 			port = optarg;
 			break;
 		}
-	if (!nick[0] && ircnick && strlen(ircnick) < sizeof nick)
-		strcpy(nick, ircnick);
-	if (!nick[0])
-		goto usage;
 	if (!user)
 		user = "anonymous";
+	if (!nick[0] && ircnick && strlen(ircnick) < sizeof nick)
+		strcpy(nick, ircnick);
+	if (!nick[0] && strlen(user) < sizeof nick)
+		strcpy(nick, user);
+	if (!nick[0])
+		goto usage;
 	tinit();
 	err = dial(server, port);
 	if (err)
