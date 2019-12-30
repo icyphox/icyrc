@@ -530,10 +530,9 @@ uparse(char *m)
 			return;
 		pushf(ch, PFMT, nick, m);
 		sndf("PRIVMSG %s :%s", chl[ch].name, m);
-		return;
+        return;
 	}
-	switch (*p) {
-	case 'j': /* Join channels. */
+	if (!strncmp(p, "/j", 2)) { /* Join channels. */
 		p += 1 + (p[1] == ' ');
 		p = strtok(p, " ");
 		while (p) {
@@ -731,9 +730,11 @@ tgetch(void)
 		tredraw();
 		return;
 	case CTRL('a'):
+    case KEY_HOME:
 		cu = 0;
 		break;
 	case CTRL('e'):
+    case KEY_END:
 		cu = len;
 		break;
 	case CTRL('b'):
