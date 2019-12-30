@@ -25,7 +25,7 @@
 #undef CTRL
 #define CTRL(x)  (x & 037)
 
-#define VERSION "icyrc 1.0 (some url here)"
+#define VERSION "icyrc 0.1 (https://github.com/icyphox/icyrc)"
 
 #define SCROLL   15
 #define INDENT   23
