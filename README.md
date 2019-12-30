@@ -27,7 +27,8 @@ Similarly, to uninstall:
 usage: irc [-n NICK] [-u USER] [-s SERVER] [-p PORT] [-l LOGFILE ] [-t] [-h]
 ```
 
-A password can be specified via an `IRCPASS` environment variable.
+The nick, user and password can be specified using `IRCNICK`,
+`USER` and `IRCPASS` environment variables.
 
 ### Commands
 
