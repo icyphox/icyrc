@@ -5,6 +5,12 @@ LDFLAGS = -lncursesw -lssl -lcrypto
 
 all: ${BIN}
 
+install:
+	install -Dm755 ${BIN} $(DESTDIR)$(PREFIX)/bin/${BIN}
+
+uninstall:
+	rm -f $(DESTDIR)$(PREFIX)/bin/${BIN}
+
 clean:
 	rm -f ${BIN} *.o
 
