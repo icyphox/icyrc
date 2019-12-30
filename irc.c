@@ -426,6 +426,20 @@ pushf(int cn, const char *fmt, ...)
 	}
 }
 
+char
+*strremove(char *str, const char *sub) {
+    size_t len = strlen(sub);
+    if (len > 0) {
+        char *p = str;
+        size_t size = 0;
+        while ((p = strstr(p, sub)) != NULL) {
+            size = (size == 0) ? (p - str) + strlen(p + len) + 1 : size - len;
+            memmove(p, p + len, size - (p - str));
+        }
+    }
+    return str;
+}
+
 static void
 scmd(char *usr, char *cmd, char *par, char *data)
 {
@@ -441,7 +455,7 @@ scmd(char *usr, char *cmd, char *par, char *data)
 	if (!strcmp(cmd, "PRIVMSG")) {
         if (!strcmp(data, "\001VERSION\001"))
             sndf("NOTICE %s :\001VERSION %s\001", usr, VERSION);
-        if (strstr(data, "PING") != NULL)
+        if (strstr(data, "\001PING") != NULL)
             sndf("NOTICE %s :%s", usr, data);
 		if (!pm || !data)
 			return;
@@ -455,6 +469,10 @@ scmd(char *usr, char *cmd, char *par, char *data)
 			tredraw();
 		}
 		c = chfind(chan);
+        if (strstr(data, "\001ACTION") != NULL) {
+            char *s = strremove(data, "\001ACTION ");
+		    pushf(c, "* %-12s %s", usr, s);
+        }
 		if (strcasestr(data, nick)) {
 			pushf(c, PFMTHIGH, usr, data);
 			chl[c].high |= ch != c;
@@ -469,11 +487,11 @@ scmd(char *usr, char *cmd, char *par, char *data)
     } else if (!strcmp(cmd, "PART")) {
 		if (!pm)
 			return;
-		pushf(chfind(pm), "-!- %-12s has left %s", usr, pm);
+		pushf(chfind(pm), "! %-12s has left %s", usr, pm);
 	} else if (!strcmp(cmd, "JOIN")) {
 		if (!pm)
 			return;
-		pushf(chfind(pm), "-!- %-12s has joined %s", usr, pm);
+		pushf(chfind(pm), "! %-12s has joined %s", usr, pm);
 	} else if (!strcmp(cmd, "470")) { /* Channel forwarding. */
 		char *ch = strtok(0, " "), *fch = strtok(0, " ");
 
@@ -587,8 +605,7 @@ tinit(void)
 	if (has_colors() == TRUE) {
 		start_color();
 		use_default_colors();
-		init_pair(1, COLOR_BLACK, COLOR_CYAN);
-        init_pair(2, COLOR_GREEN, COLOR_RED);
+		init_pair(1, COLOR_BLACK, COLOR_WHITE);
 		wbkgd(scr.sw, COLOR_PAIR(1));
 	}
 }
