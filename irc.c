@@ -27,9 +27,9 @@
 
 #define SCROLL   15
 #define INDENT   23
-#define DATEFMT  "%H:%M"
-#define PFMT     "  %-12s < %s"
-#define PFMTHIGH "> %-12s < %s"
+// #define DATEFMT  "%H:%M"
+#define PFMT     "%-12s  %s"
+#define PFMTHIGH ">%s< %s"
 #define SRV      "irc.oftc.net"
 #define PORT     "6667"
 
@@ -393,7 +393,7 @@ pushf(int cn, const char *fmt, ...)
 	t = time(0);
 	if (!(tm = localtime(&t)))
 		panic("Localtime failed.");
-	n = strftime(c->eol, LineLen, DATEFMT, tm);
+	//n = strftime(c->eol, LineLen, DATEFMT, tm);
 	if (!(gmtm = gmtime(&t)))
 		panic("Gmtime failed.");
 	c->eol[n++] = ' ';
@@ -583,7 +583,8 @@ tinit(void)
 	if (has_colors() == TRUE) {
 		start_color();
 		use_default_colors();
-		init_pair(1, COLOR_WHITE, COLOR_BLUE);
+		init_pair(1, COLOR_BLACK, COLOR_CYAN);
+        init_pair(2, COLOR_GREEN, COLOR_RED);
 		wbkgd(scr.sw, COLOR_PAIR(1));
 	}
 }
@@ -659,18 +660,19 @@ tdrawbar(void)
 	for (l = 0; fst < nch && l < scr.x; fst++) {
 		char *p = chl[fst].name;
 		if (fst == ch)
-			wattron(scr.sw, A_BOLD);
-		waddch(scr.sw, '['), l++;
-		if (chl[fst].high)
+			wattron(scr.sw, A_REVERSE);
+		waddstr(scr.sw, "  "), l++;
+		if (chl[fst].high) {
 			waddch(scr.sw, '>'), l++;
+        }
 		else if (chl[fst].new)
 			waddch(scr.sw, '+'), l++;
 		for (; *p && l < scr.x; p++, l++)
 			waddch(scr.sw, *p);
 		if (l < scr.x - 1)
-			waddstr(scr.sw, "] "), l += 2;
+			waddstr(scr.sw, "  "), l += 2;
 		if (fst == ch)
-			wattroff(scr.sw, A_BOLD);
+			wattroff(scr.sw, A_REVERSE);
 	}
 	wrefresh(scr.sw);
 }
@@ -718,7 +720,6 @@ tgetch(void)
 		if (cu)
 			cu--;
 		break;
-	case CTRL('f'):
 	case KEY_RIGHT:
 		if (cu < len)
 			cu++;
