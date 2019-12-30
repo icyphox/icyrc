@@ -25,13 +25,15 @@
 #undef CTRL
 #define CTRL(x)  (x & 037)
 
+#define VERSION "icyrc 1.0 (some url here)"
+
 #define SCROLL   15
 #define INDENT   23
 // #define DATEFMT  "%H:%M"
-#define PFMT     "%-12s  %s"
-#define PFMTHIGH ">%s< %s"
-#define SRV      "irc.oftc.net"
-#define PORT     "6667"
+#define PFMT     "%-12s   %s"
+#define PFMTHIGH "%-12s]  %s"
+#define SRV      "irc.icyphox.sh"
+#define PORT     "6666"
 
 enum {
 	ChanLen = 64,
@@ -179,7 +181,6 @@ srd(void)
 	static char l[BufSz], *p = l;
 	char *s, *usr, *cmd, *par, *data;
 	int rd;
-
 	if (p - l >= BufSz)
 		p = l; /* Input buffer overflow, there should something better to do. */
 	if (ssl)
@@ -430,7 +431,6 @@ scmd(char *usr, char *cmd, char *par, char *data)
 {
 	int s, c;
 	char *pm = strtok(par, " "), *chan;
-
 	if (!usr)
 		usr = "?";
 	else {
@@ -439,6 +439,10 @@ scmd(char *usr, char *cmd, char *par, char *data)
 			*bang = 0;
 	}
 	if (!strcmp(cmd, "PRIVMSG")) {
+        if (!strcmp(data, "\001VERSION\001"))
+            sndf("NOTICE %s :\001VERSION %s\001", usr, VERSION);
+        if (strstr(data, "PING") != NULL)
+            sndf("NOTICE %s :%s", usr, data);
 		if (!pm || !data)
 			return;
 		if (strchr("&#!+.~", pm[0]))
@@ -462,14 +466,14 @@ scmd(char *usr, char *cmd, char *par, char *data)
 		}
 	} else if (!strcmp(cmd, "PING")) {
 		sndf("PONG :%s", data ? data : "(null)");
-	} else if (!strcmp(cmd, "PART")) {
+    } else if (!strcmp(cmd, "PART")) {
 		if (!pm)
 			return;
-		pushf(chfind(pm), "-!- %s has left %s", usr, pm);
+		pushf(chfind(pm), "-!- %-12s has left %s", usr, pm);
 	} else if (!strcmp(cmd, "JOIN")) {
 		if (!pm)
 			return;
-		pushf(chfind(pm), "-!- %s has joined %s", usr, pm);
+		pushf(chfind(pm), "-!- %-12s has joined %s", usr, pm);
 	} else if (!strcmp(cmd, "470")) { /* Channel forwarding. */
 		char *ch = strtok(0, " "), *fch = strtok(0, " ");
 
