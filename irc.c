@@ -555,7 +555,10 @@ uparse(char *m)
         temp += 3;
         char *u = strtok(temp, " ");
         msg = strtok(NULL, "\0");
+        chadd(u, 1);
+        pushf(chfind(u), PFMT, nick, msg);
         sndf("PRIVMSG %s :%s", u, msg);
+        tredraw();
         return;
     }
     if (!strncmp("/r", p, 2)) { /* Send raw. */

@@ -7,11 +7,11 @@
 // #define DATEFMT  "%H:%M"
 
 /* normal msg    "nick    msg" */
-#define PFMT     "%-12s   %s"
+#define PFMT     "%-15s   %s"
 /* action msg    "nick    msg" */
-#define AFMT     "* %-12s %s"
+#define AFMT     "* %-15s %s"
 /* highlight msg  "nick   msg" */
-#define PFMTHIGH "%-12s]  %s"
+#define PFMTHIGH "%-15s]  %s"
 
 /* server */
 #define SRV      "irc.icyphox.sh"
