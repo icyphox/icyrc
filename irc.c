@@ -610,6 +610,8 @@ tinit(void)
         start_color();
         use_default_colors();
         init_pair(1, COLOR_BLACK, COLOR_WHITE);
+        init_pair(2, COLOR_RED, COLOR_WHITE);
+        init_pair(3, COLOR_GREEN, COLOR_WHITE);
         wbkgd(scr.sw, COLOR_PAIR(1));
     }
 }
@@ -688,16 +690,18 @@ tdrawbar(void)
             wattron(scr.sw, A_REVERSE);
         waddstr(scr.sw, "  "), l++;
         if (chl[fst].high) {
-            waddch(scr.sw, '>'), l++;
+            wattron(scr.sw, COLOR_PAIR(2)), l++;
         }
         else if (chl[fst].new)
-            waddch(scr.sw, '+'), l++;
+            wattron(scr.sw, COLOR_PAIR(3)), l++;
         for (; *p && l < scr.x; p++, l++)
             waddch(scr.sw, *p);
         if (l < scr.x - 1)
             waddstr(scr.sw, "  "), l += 2;
         if (fst == ch)
             wattroff(scr.sw, A_REVERSE);
+            wattroff(scr.sw, COLOR_PAIR(2));
+            wattroff(scr.sw, COLOR_PAIR(3));
     }
     wrefresh(scr.sw);
 }
