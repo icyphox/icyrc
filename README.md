@@ -41,5 +41,11 @@ The nick, user and password can be specified using `IRCNICK`,
 
 ### Hotkeys
 
-- <kbd>Ctrl</kbd>+<kbd>n</kbd>/<kbd>p</kbd> to cycle through buffers
+- <kbd>Ctrl</kbd>+<kbd>n</kbd>/<kbd>p</kbd> to cycle through buffers.
 - Emacs-like line editing commands: <kbd>Ctrl</kbd>+<kbd>w</kbd>/<kbd>e</kbd>/<kbd>a</kbd> etc.
+- <kbd>PgUp</kbd> and <kbd>PgDn</kbd> to scroll.
+
+## Configuration
+
+In true suckless fashion, configuration is done via a `config.h` file.
+Recompile for changes to take effect.
