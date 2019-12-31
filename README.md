@@ -32,8 +32,9 @@ The nick, user and password can be specified using `IRCNICK`,
 
 ### Commands
 
-- `/j #channel` -- Join channel
-- `/l #channel` -- Leave channel
-- `/q user msg` -- Send private message
-- `/r something` -- Send raw command
-- `/x` -- Quit
+- `/j #channel` — Join channel
+- `/l #channel` — Leave channel
+- `/me msg` — ACTION
+- `/q user msg` — Send private message
+- `/r something` — Send raw command
+- `/x` — Quit
