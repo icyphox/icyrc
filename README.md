@@ -1,7 +1,7 @@
 # icyrc
 > no bs irc client
 
-![scrot](https://x.icyphox.sh/8K0.png)
+![scrot](https://x.icyphox.sh/ACE.png)
 
 Built on top of https://c9x.me/irc/.
 
