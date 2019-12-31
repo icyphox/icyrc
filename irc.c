@@ -25,16 +25,7 @@
 #undef CTRL
 #define CTRL(x)  (x & 037)
 
-#define VERSION "icyrc 0.1 (https://github.com/icyphox/icyrc)"
-
-#define SCROLL   15
-#define INDENT   23
-// #define DATEFMT  "%H:%M"
-#define PFMT     "%-12s   %s"
-#define AFMT     "* %-12s %s"
-#define PFMTHIGH "%-12s]  %s"
-#define SRV      "irc.icyphox.sh"
-#define PORT     "6666"
+#include "config.h"
 
 enum {
     ChanLen = 64,
@@ -528,68 +519,67 @@ static void
 uparse(char *m)
 {
     char *p = m;
-    if (!p[0] || (p[1] != ' ' && p[1] != 0)) {
-        if (!strncmp("/j", p, 2)) { /* Join channels. */
-            p += 1 + (p[2] == ' ');
-            p = strtok(p, " ");
-            while (p) {
-                if (chadd(p, 1) < 0)
-                    break;
-                sndf("JOIN %s", p);
-                p = strtok(0, " ");
-            }
-            tredraw();
-            return;
+    //if (!p[0]|| (p[1] != ' ' && p[1] != 0)) {
+    if (!strncmp("/j", p, 2)) { /* Join channels. */
+        p += 1 + (p[2] == ' ');
+        p = strtok(p, " ");
+        while (p) {
+            if (chadd(p, 1) < 0)
+                break;
+            sndf("JOIN %s", p);
+            p = strtok(0, " ");
         }
-        if (!strncmp("/l", p, 2)) {/* Leave channels. */
-            p += 1 + (p[2] == ' ');
-            if (!*p) {
-                if (ch == 0)
-                    return; /* Cannot leave server window. */
-                strcat(p, chl[ch].name);
-            }
-            p = strtok(p, " ");
-            while (p) {
-                if (chdel(p))
-                    sndf("PART %s", p);
-                p = strtok(0, " ");
-            }
-            tredraw();
-            return;
-        }
-        if (!strncmp("/q", p, 2)) { /* Private message. */
-            m = p + 1 + (p[2] == ' ');
-            if (!(p = strchr(m, ' ')))
-                return;
-            *p++ = 0;
-            sndf("PRIVMSG %s :%s", m, p);
-            return;
-        }
-        if (!strncmp("/r", p, 2)) { /* Send raw. */
-            if (p[1])
-                sndf("%s", &p[3]);
-            return;
-        }
-        if (!strncmp("/x", p, 2)) {/* Quit. */
-            quit = 1;
-            return;
-        }
-        if (!strncmp("/me", p, 3)) {
-            char *s = strremove(p, "/me");
-            pushf(ch, AFMT, nick, s);
-            sndf("PRIVMSG %s :\001ACTION %s\001", chl[ch].name, s);
-        }
-        else {
-            if (ch == 0)
-                return;
-            m += strspn(m, " ");
-            if (!*m)
-                return;
-            pushf(ch, PFMT, nick, m);
-            sndf("PRIVMSG %s :%s", chl[ch].name, m);
-            return;
-        }/* Send on current channel. */
+        tredraw();
+        return;
     }
+    if (!strncmp("/l", p, 2)) {/* Leave channels. */
+        p += 1 + (p[2] == ' ');
+        if (!*p) {
+            if (ch == 0)
+                return; /* Cannot leave server window. */
+            strcat(p, chl[ch].name);
+        }
+        p = strtok(p, " ");
+        while (p) {
+            if (chdel(p))
+                sndf("PART %s", p);
+            p = strtok(0, " ");
+        }
+        tredraw();
+        return;
+    }
+    if (!strncmp("/q", p, 2)) { /* Private message. */
+        m = p + 1 + (p[2] == ' ');
+        if (!(p = strchr(m, ' ')))
+            return;
+        *p++ = 0;
+        sndf("PRIVMSG %s :%s", m, p);
+        return;
+    }
+    if (!strncmp("/r", p, 2)) { /* Send raw. */
+        if (p[1])
+            sndf("%s", &p[3]);
+        return;
+    }
+    if (!strncmp("/x", p, 2)) {/* Quit. */
+        quit = 1;
+        return;
+    }
+    if (!strncmp("/me", p, 3)) {
+        char *s = strremove(p, "/me");
+        pushf(ch, AFMT, nick, s);
+        sndf("PRIVMSG %s :\001ACTION %s\001", chl[ch].name, s);
+    }
+    else {
+        if (ch == 0)
+            return;
+        m += strspn(m, " ");
+        if (!*m)
+            return;
+        pushf(ch, PFMT, nick, m);
+        sndf("PRIVMSG %s :%s", chl[ch].name, m);
+        return;
+    }/* Send on current channel. */
 }
 
 static void
