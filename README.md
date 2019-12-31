@@ -38,3 +38,8 @@ The nick, user and password can be specified using `IRCNICK`,
 - `/q user msg` — Send private message
 - `/r something` — Send raw command
 - `/x` — Quit
+
+### Hotkeys
+
+- <kbd>Ctrl</kbd>+<kbd>n</kbd>/<kbd>p</kbd> to cycle through buffers
+- Emacs-like line editing commands: <kbd>Ctrl</kbd>+<kbd>w</kbd>/<kbd>e</kbd>/<kbd>a</kbd> etc.
