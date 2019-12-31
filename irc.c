@@ -530,7 +530,7 @@ uparse(char *m)
     char *p = m;
     if (!p[0] || (p[1] != ' ' && p[1] != 0)) {
         if (!strncmp("/j", p, 2)) { /* Join channels. */
-            p += 1 + (p[1] == ' ');
+            p += 1 + (p[2] == ' ');
             p = strtok(p, " ");
             while (p) {
                 if (chadd(p, 1) < 0)
@@ -542,7 +542,7 @@ uparse(char *m)
             return;
         }
         if (!strncmp("/l", p, 2)) {/* Leave channels. */
-            p += 1 + (p[1] == ' ');
+            p += 1 + (p[2] == ' ');
             if (!*p) {
                 if (ch == 0)
                     return; /* Cannot leave server window. */
@@ -558,7 +558,7 @@ uparse(char *m)
             return;
         }
         if (!strncmp("/q", p, 2)) { /* Private message. */
-            m = p + 1 + (p[1] == ' ');
+            m = p + 1 + (p[2] == ' ');
             if (!(p = strchr(m, ' ')))
                 return;
             *p++ = 0;
@@ -567,7 +567,7 @@ uparse(char *m)
         }
         if (!strncmp("/r", p, 2)) { /* Send raw. */
             if (p[1])
-                sndf("%s", &p[2]);
+                sndf("%s", &p[3]);
             return;
         }
         if (!strncmp("/x", p, 2)) {/* Quit. */
