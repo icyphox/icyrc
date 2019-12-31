@@ -31,6 +31,7 @@
 #define INDENT   23
 // #define DATEFMT  "%H:%M"
 #define PFMT     "%-12s   %s"
+#define AFMT     "* %-12s %s"
 #define PFMTHIGH "%-12s]  %s"
 #define SRV      "irc.icyphox.sh"
 #define PORT     "6666"
@@ -394,7 +395,9 @@ pushf(int cn, const char *fmt, ...)
     t = time(0);
     if (!(tm = localtime(&t)))
         panic("Localtime failed.");
-    //n = strftime(c->eol, LineLen, DATEFMT, tm);
+#ifdef DATEFMT
+    n = strftime(c->eol, LineLen, DATEFMT, tm);
+#endif
     if (!(gmtm = gmtime(&t)))
         panic("Gmtime failed.");
     c->eol[n++] = ' ';
@@ -471,10 +474,15 @@ scmd(char *usr, char *cmd, char *par, char *data)
         c = chfind(chan);
         if (strstr(data, "\001ACTION") != NULL) {
             char *s = strremove(data, "\001ACTION ");
-            pushf(c, "* %-12s %s", usr, s);
+            pushf(c, AFMT, usr, s);
         }
         if (strcasestr(data, nick)) {
             pushf(c, PFMTHIGH, usr, data);
+            /*
+            TODO: figure out notification cmd (shell out or fork/exec?)
+            char *cmd;
+            snprintf(cmd, sizeof(cmd), "notify-send '%s @ %s' %s", usr, chan, data);
+            */
             chl[c].high |= ch != c;
         } else
             pushf(c, PFMT, usr, data);
@@ -565,6 +573,11 @@ uparse(char *m)
         if (!strncmp("/x", p, 2)) {/* Quit. */
             quit = 1;
             return;
+        }
+        if (!strncmp("/me", p, 3)) {
+            char *s = strremove(p, "/me");
+            pushf(ch, AFMT, nick, s);
+            sndf("PRIVMSG %s :\001ACTION %s\001", chl[ch].name, s);
         }
         else {
             if (ch == 0)
