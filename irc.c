@@ -549,11 +549,13 @@ uparse(char *m)
         return;
     }
     if (!strncmp("/q", p, 2)) { /* Private message. */
-        m = p + 1 + (p[2] == ' ');
-        if (!(p = strchr(m, ' ')))
-            return;
-        *p++ = 0;
-        sndf("PRIVMSG %s :%s", m, p);
+        int len = strlen(m);
+        char *temp = (char *) malloc (len * (sizeof(char))), *msg;
+        strcpy(temp, p);
+        temp += 3;
+        char *u = strtok(temp, " ");
+        msg = strtok(NULL, "\0");
+        sndf("PRIVMSG %s :%s", u, msg);
         return;
     }
     if (!strncmp("/r", p, 2)) { /* Send raw. */
