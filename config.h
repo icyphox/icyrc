@@ -13,6 +13,9 @@
 /* highlight msg  "nick   msg" */
 #define PFMTHIGH "%-15s]  %s"
 
+/* command that STDOUTs a password in a single line */
+#define PWCMD    "pw -s ircpass"
+
 /* server */
 #define SRV      "irc.icyphox.sh"
 /* port */

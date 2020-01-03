@@ -82,7 +82,7 @@ static void
 panic(const char *m)
 {
     treset();
-    fprintf(stderr, "Panic: %s\n", m);
+    fprintf(stderr, "error: %s\n", m);
     exit(1);
 }
 
@@ -301,7 +301,7 @@ chadd(const char *name, int joined)
     chl[nch].sz = LogSz;
     chl[nch].buf = malloc(LogSz);
     if (!chl[nch].buf)
-        panic("Out of memory.");
+        panic("out of memory");
     chl[nch].eol = chl[nch].buf;
     chl[nch].n = 0;
     chl[nch].join = joined;
@@ -380,17 +380,17 @@ pushf(int cn, const char *fmt, ...)
         c->sz *= 2;
         c->buf = realloc(c->buf, c->sz);
         if (!c->buf)
-            panic("Out of memory.");
+            panic("out of memory");
         c->eol = c->buf + blen;
     }
     t = time(0);
     if (!(tm = localtime(&t)))
-        panic("Localtime failed.");
+        panic("localtime failed");
 #ifdef DATEFMT
     n = strftime(c->eol, LineLen, DATEFMT, tm);
 #endif
     if (!(gmtm = gmtime(&t)))
-        panic("Gmtime failed.");
+        panic("gmtime failed");
     c->eol[n++] = ' ';
     va_start(vl, fmt);
     s = c->eol + n;
@@ -604,11 +604,11 @@ tinit(void)
     noecho();
     getmaxyx(stdscr, scr.y, scr.x);
     if (scr.y < 4)
-        panic("Screen too small.");
+        panic("screen too small");
     if ((scr.sw = newwin(1, scr.x, 0, 0)) == 0
     || (scr.mw = newwin(scr.y - 2, scr.x, 1, 0)) == 0
     || (scr.iw = newwin(1, scr.x, scr.y - 1, 0)) == 0)
-        panic("Cannot create windows.");
+        panic("cannot create windows");
     keypad(scr.iw, 1);
     scrollok(scr.mw, 1);
     if (has_colors() == TRUE) {
@@ -628,7 +628,7 @@ tresize(void)
 
     winchg = 0;
     if (ioctl(0, TIOCGWINSZ, &ws) < 0)
-        panic("Ioctl (TIOCGWINSZ) failed.");
+        panic("ioctl (TIOCGWINSZ) failed");
     if (ws.ws_row <= 2)
         return;
     resizeterm(scr.y = ws.ws_row, scr.x = ws.ws_col);
@@ -845,7 +845,18 @@ main(int argc, char *argv[])
 {
     const char *user = getenv("USER");
     const char *ircnick = getenv("IRCNICK");
-    const char *key = getenv("IRCPASS");
+    char key[128];
+#ifdef PWCMD
+    FILE *fp = popen(PWCMD, "r");
+    if (fp == NULL) {
+        panic("failed to run command");
+    }
+    fgets(key, 128, fp);
+    key[strcspn(key, "\n")] = 0;
+    pclose(fp);
+#else
+    strcpy(key, getenv("IRCPASS"));
+#endif
     const char *server = SRV;
     const char *port = PORT;
     char *err;
@@ -916,12 +927,12 @@ main(int argc, char *argv[])
         if (ret < 0) {
             if (errno == EINTR)
                 continue;
-            panic("Select failed.");
+            panic("select failed");
         }
         if (reconn) {
             hangup();
             if (reconn++ == MaxRecons + 1)
-                panic("Link lost.");
+                panic("link lost");
             pushf(0, "-!- Link lost, attempting reconnection...");
             if (dial(server, port) != 0)
                 continue;
