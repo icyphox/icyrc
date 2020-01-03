@@ -471,7 +471,7 @@ scmd(char *usr, char *cmd, char *par, char *data)
             pushf(c, PFMTHIGH, usr, data);
             char cmd[256];
             if (NOTIFY) {
-                snprintf(cmd, sizeof(cmd), "notify-send '%s @ %s' %s", usr, chan, data);
+                snprintf(cmd, sizeof(cmd), "notify-send \"%s @ %s\" \"%s\"", usr, chan, data);
                 system(cmd);
             }
             chl[c].high |= ch != c;
