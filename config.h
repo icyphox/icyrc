@@ -1,4 +1,4 @@
-#define VERSION "icyrc 0.1 (https://github.com/icyphox/icyrc)"
+#define VERSION "icyrc 0.2 (https://github.com/icyphox/icyrc)"
 
 #define SCROLL   15
 #define INDENT   25
