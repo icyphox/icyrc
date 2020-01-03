@@ -469,11 +469,11 @@ scmd(char *usr, char *cmd, char *par, char *data)
         }
         if (strcasestr(data, nick)) {
             pushf(c, PFMTHIGH, usr, data);
-            /*
-            TODO: figure out notification cmd (shell out or fork/exec?)
-            char *cmd;
-            snprintf(cmd, sizeof(cmd), "notify-send '%s @ %s' %s", usr, chan, data);
-            */
+            char cmd[256];
+            if (NOTIFY) {
+                snprintf(cmd, sizeof(cmd), "notify-send '%s @ %s' %s", usr, chan, data);
+                system(cmd);
+            }
             chl[c].high |= ch != c;
         } else
             pushf(c, PFMT, usr, data);

@@ -16,6 +16,10 @@
 /* command that STDOUTs a password in a single line */
 #define PWCMD    "pw -s ircpass"
 
+/* enable notifications (notify-send) */
+
+#define NOTIFY   1
+
 /* server */
 #define SRV      "irc.icyphox.sh"
 /* port */
