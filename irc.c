@@ -467,6 +467,8 @@ scmd(char *usr, char *cmd, char *par, char *data)
             char *s = strremove(data, "\001ACTION ");
             pushf(c, AFMT, usr, s);
         }
+        else
+            pushf(c, PFMT, usr, data);
         if (strcasestr(data, nick)) {
             pushf(c, PFMTHIGH, usr, data);
             char cmd[256];
@@ -475,8 +477,7 @@ scmd(char *usr, char *cmd, char *par, char *data)
                 system(cmd);
             }
             chl[c].high |= ch != c;
-        } else
-            pushf(c, PFMT, usr, data);
+        }
         if (ch != c) {
             chl[c].new = 1;
             tdrawbar();
