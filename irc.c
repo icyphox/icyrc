@@ -438,6 +438,7 @@ static void
 scmd(char *usr, char *cmd, char *par, char *data)
 {
     int s, c;
+    int pushed = 0;
     char *pm = strtok(par, " "), *chan;
     if (!usr)
         usr = "?";
@@ -466,17 +467,21 @@ scmd(char *usr, char *cmd, char *par, char *data)
         if (strstr(data, "\001ACTION") != NULL) {
             char *s = strremove(data, "\001ACTION ");
             pushf(c, AFMT, usr, s);
+            pushed = 1;
         }
-        else
-            pushf(c, PFMT, usr, data);
         if (strcasestr(data, nick)) {
             pushf(c, PFMTHIGH, usr, data);
+            pushed = 1;
             char cmd[256];
             if (NOTIFY) {
+                /* packs all of notify-send into cmd */
                 snprintf(cmd, sizeof(cmd), "notify-send \"%s @ %s\" \"%s\"", usr, chan, data);
                 system(cmd);
             }
             chl[c].high |= ch != c;
+        }
+        if (!pushed) {
+            pushf(c, PFMT, usr, data);
         }
         if (ch != c) {
             chl[c].new = 1;
