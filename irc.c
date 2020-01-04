@@ -861,7 +861,10 @@ main(int argc, char *argv[])
     key[strcspn(key, "\n")] = 0;
     pclose(fp);
 #else
-    strcpy(key, getenv("IRCPASS"));
+    if(getenv("IRCPASS"))
+        strcpy(key, getenv("IRCPASS"));
+    else
+        panic("error: IRCPASS environment variable not set");
 #endif
     const char *server = SRV;
     const char *port = PORT;
